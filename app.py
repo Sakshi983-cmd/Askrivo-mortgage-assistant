@@ -75,6 +75,8 @@ st.markdown("""
 # ✅ ✅ ✅ UPDATED: Groq Cli
 class GroqClient:
     def __init__(self, api_key: str, max_retries: int = 3):
+        self.api_key = api_key
+        self.max_retries = max_retries   # ✅ MISSING LINE FIXED
         self.client = Groq(api_key=api_key)
         self.model_name = "llama3-70b"
         logger.info("Groq client initialized successfully")
@@ -99,6 +101,7 @@ class GroqClient:
                 return self.generate_with_retry(prompt, attempt + 1)
 
             return None
+
 
         
 # Mortgage calculation tools

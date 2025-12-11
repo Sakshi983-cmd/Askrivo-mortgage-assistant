@@ -243,10 +243,11 @@ class ConversationManager:
 
 # AI Agent
 class MortgageAgent:
-    def __init__(self, gemini_client: GeminiClient, calculator: MortgageCalculator):
-        self.gemini = gemini_client
+    def __init__(self, groq_client: GroqClient, calculator: MortgageCalculator):
+        self.groq = groq_client
         self.calculator = calculator
         self.conversation = ConversationManager()
+
     
     def should_calculate(self, user_message: str, conversation_context: str) -> bool:
         triggers = ['calculate', 'emi', 'afford', 'monthly', 'payment', 'buy', 'rent', 'price']

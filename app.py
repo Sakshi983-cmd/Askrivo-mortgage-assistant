@@ -301,6 +301,7 @@ with col2:
     • Max Tenure: 25 years
     </div>
     """, unsafe_allow_html=True)
+    
   if st.session_state.agent and hasattr(st.session_state.agent, 'user_data') and st.session_state.agent.user_data:
     data = st.session_state.agent.user_data
     if 'income' in data:

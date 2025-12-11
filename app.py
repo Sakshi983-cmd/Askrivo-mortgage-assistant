@@ -301,13 +301,12 @@ with col2:
     • Max Tenure: 25 years
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.session_state.agent and st.session_state.agent.user_data:
-        data = st.session_state.agent.user_data
-        if 'income' in data:
-            st.markdown(f'<div class="card">💰 Income: AED {data["income"]:,.0f}/month</div>', unsafe_allow_html=True)
-        if 'property_price' in data:
-            st.markdown(f'<div class="card">🏡 Property: AED {data["property_price"]:,.0f}</div>', unsafe_allow_html=True)
+  if st.session_state.agent and hasattr(st.session_state.agent, 'user_data') and st.session_state.agent.user_data:
+    data = st.session_state.agent.user_data
+    if 'income' in data:
+        st.markdown(f'<div class="card">💰 Income: AED {data["income"]:,.0f}/month</div>', unsafe_allow_html=True)
+    if 'property_price' in data:
+        st.markdown(f'<div class="card">🏡 Property: AED {data["property_price"]:,.0f}</div>', unsafe_allow_html=True)
 
 # ============ ERROR HANDLING ============
 try:

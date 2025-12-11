@@ -176,7 +176,7 @@ st.markdown("### Tell me your situation...")
 
 # ============ CHAT ============
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]]:
+    with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
 

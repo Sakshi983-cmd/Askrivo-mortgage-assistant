@@ -72,13 +72,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ✅ ✅ ✅ UPDATED: Groq Clien
+# ✅ ✅ ✅ UPDATED: Groq Cli
 class GeminiClient:
     def __init__(self, api_key: str, max_retries: int = 3):
         self.api_key = api_key
         self.max_retries = max_retries
         self.client = Groq(api_key=api_key)
-        self.model_name = "llama3-70b-8192"
+        self.model_name = "llama3-70b"   # ✅ updated model
         logger.info("Groq client initialized successfully")
     
     def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:
@@ -100,7 +100,6 @@ class GeminiClient:
                 time.sleep(wait_time)
                 return self.generate_with_retry(prompt, attempt + 1)
 
-            # ✅ IMPORTANT: final fallback return
             return None
 
         

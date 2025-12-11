@@ -73,12 +73,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ✅ ✅ ✅ UPDATED: Groq Cli
-class GeminiClient:
+class GroqClient:
     def __init__(self, api_key: str, max_retries: int = 3):
-        self.api_key = api_key
-        self.max_retries = max_retries
         self.client = Groq(api_key=api_key)
-        self.model_name = "llama3-70b"   # ✅ updated model
+        self.model_name = "llama3-70b"
         logger.info("Groq client initialized successfully")
     
     def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:

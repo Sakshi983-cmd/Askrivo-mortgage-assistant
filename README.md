@@ -1,5 +1,5 @@
 # 🏠 UAE Mortgage Assistant - AI Engineering Challenge
-LINK - https://askrivo-mortgage-assistant-fappdh6azvdd6li3j4icrhm.streamlit.app/
+
 ## 🎯 Mission Accomplished
 
 This is **NOT a wrapper** - this is a **production-grade AI system** built for CoinedOne's Founder's Office challenge.
@@ -8,10 +8,32 @@ This is **NOT a wrapper** - this is a **production-grade AI system** built for C
 
 ## 🏗️ System Architecture
 
+> **📄 For complete system design documentation, see [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)**
+> 
+> **🎨 For visual architecture, open [architecture_diagram.html](architecture_diagram.html) in browser**
+
 ### **Core Philosophy: Real AI Engineering**
 > "If your application is just a prompt sent to a model, you aren't building an AI system—you're building a UI for someone else's intelligence."
 
 This project demonstrates **real AI engineering** beyond API calls:
+
+### Quick Architecture Overview
+
+```
+┌─────────────────────────────────────────┐
+│  UI Layer (Streamlit + Custom CSS)     │  ← User sees this
+├─────────────────────────────────────────┤
+│  Orchestration (MortgageAgent)         │  ← Brain/Decision making
+├─────────────────────────────────────────┤
+│  Tool Layer (Calculator Functions)     │  ← Zero hallucination math
+├─────────────────────────────────────────┤
+│  Context Layer (Conversation Manager)  │  ← Memory/Token management
+├─────────────────────────────────────────┤
+│  Resilience (Retry + Error Handling)   │  ← Production reliability
+├─────────────────────────────────────────┤
+│  LLM Service (Gemini 1.5 Flash)        │  ← Natural language only
+└─────────────────────────────────────────┘
+```
 
 ### 1️⃣ **The LLM Layer** (Natural Language Understanding)
 - **Model**: Google Gemini 1.5 Flash
@@ -393,5 +415,3 @@ streamlit run app.py
 ✅ Production-Ready (Retry logic, logging, error handling)
 
 **This is not a wrapper. This is AI Engineering.** 🚀
-
-�

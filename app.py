@@ -201,6 +201,7 @@ st.markdown("""
 
 # Initialize Gemini with retry logic
 # Gemini free fallback for testing UI
+# Gemini free fallback for testing UI
 class GeminiClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -208,8 +209,6 @@ class GeminiClient:
     def generate_with_retry(self, prompt: str, attempt: int = 1):
         return "Hello! This is a free test response. UI working fine."
 
-    def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:
-        """Generate response with exponential backoff retry logic"""
         try:
             logger.info(f"Generating response (attempt {attempt}/{self.max_retries})")
             response = self.model.generate_content(prompt)

@@ -38,23 +38,23 @@ class GroqClient:
         self.model_name = "llama3-70b-8192"
         logger.info("Groq client initialized")
 
-    def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:
-        try:
-            logger.info(f"Groq generate attempt {attempt}")
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message["content"]
+   def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:
+    try:
+        logger.info(f"Groq generate attempt {attempt}")
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message["content"]
 
-        except Exception as e:
-            logger.error(f"Groq error on attempt {attempt}: {e}")
-            if attempt < self.max_retries:
-                wait_time = 2 ** attempt
-                logger.info(f"Retrying after {wait_time}s")
-                time.sleep(wait_time)
-                return self.generate_with_retry(prompt, attempt + 1)
-            return None
+    except Exception as e:
+        logger.error(f"Groq error on attempt {attempt}: {e}")
+        if attempt < self.max_retries:
+            wait_time = 2 ** attempt
+            logger.info(f"Retrying after {wait_time}s")
+            time.sleep(wait_time)
+            return self.generate_with_retry(prompt, attempt + 1)
+        return None
 
 # -------------------------
 # Conversation manager

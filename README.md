@@ -31,6 +31,7 @@ This demonstrates my "builder" mindset: Self-started from spec, owned full lifec
 - **Edge Cases**: Validated in tools (e.g., min 20% down payment, max 25y tenure, low income → custom advice). Errors handled empathetically without crashing.
 - **Latency Optimization**: Streaming responses (<2s start time); no long waits.
 
+
 ## System Design
 To align with the JD's emphasis on scalable backend services, data models, reliable infrastructure (caching, rate limiting, high availability), and AI-native development (RAG pipelines, AI agents), here's the high-level system design for scaling this prototype to production. It incorporates hybrid conversational AI patterns for robustness.<grok-card data-id="53a9a0" data-type="citation_card"></grok-card><grok-card data-id="8d6ee3" data-type="citation_card"></grok-card>
 
@@ -41,6 +42,7 @@ The current prototype is a monolithic Streamlit app for velocity, but designed m
 - **AI Integration Layer**: Gemini for intent/empathy, tool calling for math/workflows.
 - **Data/Infra Layer**: Session state (prototype); scalable with DB/caching.
 - **Extensions for Scalability**: Background jobs, RAG for market insights, error handling/retries.
+
 
 ```mermaid
 graph TD

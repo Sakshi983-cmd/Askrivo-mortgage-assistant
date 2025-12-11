@@ -302,13 +302,28 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
     
-  if st.session_state.agent and hasattr(st.session_state.agent, 'user_data') and st.session_state.agent.user_data:
-    data = st.session_state.agent.user_data
-    if 'income' in data:
-        st.markdown(f'<div class="card">💰 Income: AED {data["income"]:,.0f}/month</div>', unsafe_allow_html=True)
-    if 'property_price' in data:
-        st.markdown(f'<div class="card">🏡 Property: AED {data["property_price"]:,.0f}</div>', unsafe_allow_html=True)
-
+    # Safe check - कोई error नहीं
+    try:
+        if st.session_state.agent:
+            # Check अगर user_data है तो
+            if hasattr(st.session_state.agent, 'user_data'):
+                data = st.session_state.agent.user_data
+                if data:
+                    if 'income' in data:
+                        st.markdown(f'<div class="card">💰 Income: AED {data["income"]:,.0f}/month</div>', unsafe_allow_html=True)
+                    if 'property_price' in data:
+                        st.markdown(f'<div class="card">🏡 Property: AED {data["property_price"]:,.0f}</div>', unsafe_allow_html=True)
+            else:
+                # अगर user_data नहीं है, तो conversation data देखो
+                if hasattr(st.session_state.agent, 'conversation'):
+                    conv = st.session_state.agent.conversation
+                    if hasattr(conv, 'extracted_data'):
+                        data = conv.extracted_data
+                        if 'financial' in data and 'monthly_income' in data['financial']:
+                            income = data['financial']['monthly_income']
+                            st.markdown(f'<div class="card">💰 Income: AED {income:,.0f}/month</div>', unsafe_allow_html=True)
+    except:
+        pass  # कुछ नहीं दिखाओ
 # ============ ERROR HANDLING ============
 try:
     # This ensures the app runs without errors

@@ -226,6 +226,7 @@ class GeminiClient:
                 logger.error(f"Max retries reached. Error: {traceback.format_exc()}")
                 return None
 
+
 # Mortgage calculation tools
 class MortgageCalculator:
     """Deterministic calculation engine - No LLM hallucinations here!"""
@@ -236,7 +237,7 @@ class MortgageCalculator:
     MAX_TENURE = 25  # 25 years max
     
     @staticmethod
-    def calculate_emi(loan_amount: float, annual_rate: float, tenure_years: int) -> Dict:
+    def calculate_emi(loan_amount: float, annual_rate: float, tenure_years: int) -> dict:
         """Calculate EMI using standard formula"""
         try:
             monthly_rate = annual_rate / 12
@@ -266,7 +267,7 @@ class MortgageCalculator:
             return {"error": str(e)}
     
     @staticmethod
-    def calculate_affordability(property_price: float, down_payment: float = None) -> Dict:
+    def calculate_affordability(property_price: float, down_payment: float = None) -> dict:
         """Calculate affordability metrics"""
         try:
             if down_payment is None:
@@ -293,8 +294,7 @@ class MortgageCalculator:
             return {"error": str(e)}
     
     @staticmethod
-    def buy_vs_rent_analysis(monthly_rent: float, property_price: float, 
-                            years_planning: int) -> Dict:
+    def buy_vs_rent_analysis(monthly_rent: float, property_price: float, years_planning: int) -> dict:
         """Analyze buy vs rent decision"""
         try:
             affordability = MortgageCalculator.calculate_affordability(property_price)
@@ -306,6 +306,32 @@ class MortgageCalculator:
                 MortgageCalculator.MAX_TENURE
             )
             
+            monthly_mortgage = emi_data["emi"]
+            monthly_maintenance = property_price * 0.002  # 0.2% monthly maintenance
+            total_monthly_own = monthly_mortgage + monthly_maintenance
+            
+            total_rent_cost = monthly_rent * 12 * years_planning
+            total_own_cost = (total_monthly_own * 12 * years_planning) + affordability["total_upfront"]
+            
+            recommendation = "RENT" if years_planning < 3 else "BUY" if years_planning > 5 else "BORDERLINE"
+            
+            logger.info(f"Buy vs Rent analysis: {recommendation} for {years_planning} years")
+            
+            return {
+                "monthly_rent": monthly_rent,
+                "monthly_mortgage": monthly_mortgage,
+                "monthly_maintenance": monthly_maintenance,
+                "total_monthly_own": total_monthly_own,
+                "total_rent_cost": total_rent_cost,
+                "total_own_cost": total_own_cost,
+                "savings": total_rent_cost - total_own_cost,
+                "recommendation": recommendation,
+                "years": years_planning
+            }
+        except Exception as e:
+            logger.error(f"Buy vs Rent analysis error: {str(e)}")
+            return {"error": str(e)}
+
             monthly_mortgage = emi_data["emi"]
             monthly_maintenance = property_price * 0.002  # 0.2% monthly maintenance
             total_monthly_own = monthly_mortgage + monthly_maintenance

@@ -328,7 +328,7 @@ if st.session_state.show_sakhi and user_input and send_button:
         st.session_state.sakhi_stage = "thanks"
         st.balloons()
     st.session_state.user_input = ""
-    st.experimental_rerun()
+    st.rerun()
 
 elif user_input and send_button and not st.session_state.show_sakhi:
     st.session_state.messages.append({"role": "user", "content": user_input})
@@ -337,7 +337,7 @@ elif user_input and send_button and not st.session_state.show_sakhi:
         st.session_state.messages.append({"role": "assistant", "content": response})
     if len(st.session_state.messages) >= 10:
         st.session_state.show_sakhi = True
-    st.experimental_rerun()
+    st.rerun()
 
 with st.sidebar:
     st.markdown("### 📊 Quick Stats")

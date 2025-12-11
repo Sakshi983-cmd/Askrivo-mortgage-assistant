@@ -251,11 +251,11 @@ class MortgageAgent:
         self.calculator = calculator
         self.conversation = ConversationManager()
 
-    
     def should_calculate(self, user_message: str, conversation_context: str) -> bool:
         triggers = ['calculate', 'emi', 'afford', 'monthly', 'payment', 'buy', 'rent', 'price']
         return any(trigger in user_message.lower() for trigger in triggers)
-       def generate_response(self, user_message: str) -> str:
+
+    def generate_response(self, user_message: str) -> str:
         try:
             # Save user message
             self.conversation.add_message("user", user_message)
@@ -285,7 +285,6 @@ class MortgageAgent:
                             self.calculator.MAX_TENURE
                         )
 
-            # Build system prompt
             system_prompt = f"""
 You are a friendly UAE mortgage advisor named "Zara". You help expats understand mortgages.
 
@@ -311,7 +310,6 @@ USER MESSAGE: {user_message}
 Respond naturally:
 """
 
-            # ✅ Groq call
             response = self.groq.generate_with_retry(system_prompt)
 
             if response:
@@ -320,8 +318,9 @@ Respond naturally:
             else:
                 return "I'm having trouble connecting right now. Could you please try again?"
 
-        except Exception as e:
+        except Exception:
             return "I encountered an error. Let me try to help you differently."
+
 
 
 # Sakhi - Feedback Bot

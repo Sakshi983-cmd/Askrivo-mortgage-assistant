@@ -255,16 +255,18 @@ class MortgageAgent:
     def should_calculate(self, user_message: str, conversation_context: str) -> bool:
         triggers = ['calculate', 'emi', 'afford', 'monthly', 'payment', 'buy', 'rent', 'price']
         return any(trigger in user_message.lower() for trigger in triggers)
-    
-    def generate_response(self, user_message: str) -> str:
+       def generate_response(self, user_message: str) -> str:
         try:
+            # Save user message
             self.conversation.add_message("user", user_message)
             self.conversation.extract_user_data(user_message, self.calculator)
-            
+
             context = self.conversation.get_context()
             user_data = self.conversation.user_data
-            
+
             calculation_result = None
+
+            # Check if calculation needed
             if self.should_calculate(user_message, context):
                 if 'property_price' in user_data:
                     if 'monthly_rent' in user_data and 'years_planning' in user_data:
@@ -282,8 +284,10 @@ class MortgageAgent:
                             self.calculator.STANDARD_RATE,
                             self.calculator.MAX_TENURE
                         )
-            
-            system_prompt = f"""You are a friendly UAE mortgage advisor named "Zara". You help expats understand mortgages.
+
+            # Build system prompt
+            system_prompt = f"""
+You are a friendly UAE mortgage advisor named "Zara". You help expats understand mortgages.
 
 CONVERSATION CONTEXT:
 {context}
@@ -304,18 +308,21 @@ RULES:
 
 USER MESSAGE: {user_message}
 
-Respond naturally:"""
-            
-            response = self.gemini.generate_with_retry(system_prompt)
-            
+Respond naturally:
+"""
+
+            # ✅ Groq call
+            response = self.groq.generate_with_retry(system_prompt)
+
             if response:
                 self.conversation.add_message("assistant", response)
                 return response
             else:
                 return "I'm having trouble connecting right now. Could you please try again?"
-                
+
         except Exception as e:
-            return "I encountered an error. Let me try to help you differently. What would you like to know about UAE mortgages?"
+            return "I encountered an error. Let me try to help you differently."
+
 
 # Sakhi - Feedback Bot
 class SakhiBot:

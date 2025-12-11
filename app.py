@@ -344,7 +344,7 @@ try:
         st.stop()
     
     if st.session_state.agent is None:
-        groq_client = GeminiClient(api_key)
+        groq_client = GroqClient(api_key)   # ✅ FIXED
         calculator = MortgageCalculator()
         st.session_state.agent = MortgageAgent(groq_client, calculator)
 except Exception as e:

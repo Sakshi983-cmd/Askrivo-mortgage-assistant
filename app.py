@@ -332,32 +332,6 @@ class MortgageCalculator:
             logger.error(f"Buy vs Rent analysis error: {str(e)}")
             return {"error": str(e)}
 
-            monthly_mortgage = emi_data["emi"]
-            monthly_maintenance = property_price * 0.002  # 0.2% monthly maintenance
-            total_monthly_own = monthly_mortgage + monthly_maintenance
-            
-            total_rent_cost = monthly_rent * 12 * years_planning
-            total_own_cost = (total_monthly_own * 12 * years_planning) + affordability["total_upfront"]
-            
-            recommendation = "RENT" if years_planning < 3 else "BUY" if years_planning > 5 else "BORDERLINE"
-            
-            logger.info(f"Buy vs Rent analysis: {recommendation} for {years_planning} years")
-            
-            return {
-                "monthly_rent": monthly_rent,
-                "monthly_mortgage": monthly_mortgage,
-                "monthly_maintenance": monthly_maintenance,
-                "total_monthly_own": total_monthly_own,
-                "total_rent_cost": total_rent_cost,
-                "total_own_cost": total_own_cost,
-                "savings": total_rent_cost - total_own_cost,
-                "recommendation": recommendation,
-                "years": years_planning
-            }
-        except Exception as e:
-            logger.error(f"Buy vs Rent analysis error: {str(e)}")
-            return {"error": str(e)}
-
 # Conversation Manager
 class ConversationManager:
     """Manages conversation state and context"""
@@ -379,10 +353,9 @@ class ConversationManager:
     
     def get_context(self, max_tokens: int = 4000) -> str:
         """Get conversation context with token management"""
-        # Simple token estimation: ~4 chars per token
         context = ""
         total_chars = 0
-        max_chars = max_tokens * 4
+        max_chars = max_tokens * 4  # Simple token estimation
         
         for msg in reversed(self.messages[-10:]):  # Last 10 messages
             msg_text = f"{msg['role']}: {msg['content']}\n"
@@ -397,8 +370,6 @@ class ConversationManager:
     def extract_user_data(self, message: str, calculator: MortgageCalculator):
         """Extract structured data from conversation"""
         message_lower = message.lower()
-        
-        # Extract numerical values
         import re
         numbers = re.findall(r'[\d,]+(?:\.\d+)?', message)
         
@@ -433,12 +404,10 @@ class MortgageAgent:
         logger.info("Mortgage agent initialized")
     
     def should_calculate(self, user_message: str, conversation_context: str) -> bool:
-        """Determine if we need to run calculations"""
         triggers = ['calculate', 'emi', 'afford', 'monthly', 'payment', 'buy', 'rent', 'price']
         return any(trigger in user_message.lower() for trigger in triggers)
     
     def generate_response(self, user_message: str) -> str:
-        """Generate intelligent response with tool calling"""
         try:
             self.conversation.add_message("user", user_message)
             self.conversation.extract_user_data(user_message, self.calculator)
@@ -446,7 +415,6 @@ class MortgageAgent:
             context = self.conversation.get_context()
             user_data = self.conversation.user_data
             
-            # Check if we should calculate
             calculation_result = None
             if self.should_calculate(user_message, context):
                 if 'property_price' in user_data:
@@ -466,7 +434,6 @@ class MortgageAgent:
                             self.calculator.MAX_TENURE
                         )
             
-            # Build prompt for LLM
             system_prompt = f"""You are a friendly UAE mortgage advisor named "Zara". You help expats understand mortgages.
 
 CONVERSATION CONTEXT:
@@ -497,9 +464,8 @@ Respond naturally:"""
                 logger.info("Response generated and added to conversation")
                 return response
             else:
-                error_msg = "I'm having trouble connecting right now. Could you please try again?"
                 logger.error("Failed to generate response after retries")
-                return error_msg
+                return "I'm having trouble connecting right now. Could you please try again?"
                 
         except Exception as e:
             logger.error(f"Error in generate_response: {traceback.format_exc()}")
@@ -520,7 +486,7 @@ class SakhiBot:
         }
         return messages.get(stage, messages["intro"])
 
-# Initialize session state
+# Session State Initialization
 if 'initialized' not in st.session_state:
     st.session_state.initialized = True
     st.session_state.messages = []
@@ -529,125 +495,3 @@ if 'initialized' not in st.session_state:
     st.session_state.sakhi_stage = "intro"
     st.session_state.feedback_data = {}
     logger.info("Session state initialized")
-
-# Initialize Gemini
-try:
-    api_key = st.secrets.get("GEMINI_API_KEY", "")
-    if not api_key:
-        st.error("⚠️ GEMINI_API_KEY not found in secrets. Please add it in Streamlit Cloud settings.")
-        st.stop()
-    
-    if st.session_state.agent is None:
-        gemini_client = GeminiClient(api_key)
-        calculator = MortgageCalculator()
-        st.session_state.agent = MortgageAgent(gemini_client, calculator)
-        logger.info("Agent initialized successfully")
-except Exception as e:
-    st.error(f"Failed to initialize: {str(e)}")
-    logger.error(f"Initialization error: {traceback.format_exc()}")
-    st.stop()
-
-# Header
-st.markdown("""
-<div class="main-header">
-    <h1>🏠 Your Smart Mortgage Friend</h1>
-    <p>Navigate UAE mortgages with confidence - No hidden fees, no confusion</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Main chat container
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-
-# Display chat messages
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.markdown(f'<div class="user-message">👤 {msg["content"]}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="assistant-message">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
-
-# Sakhi feedback flow
-if st.session_state.show_sakhi:
-    st.markdown(f'<div class="sakhi-message">💬 Sakhi: {SakhiBot.get_message(st.session_state.sakhi_stage)}</div>', 
-                unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Input area
-col1, col2 = st.columns([5, 1])
-
-with col1:
-    user_input = st.text_input(
-        "Type your message...",
-        key="user_input",
-        placeholder="e.g., I want to buy a 2M AED apartment in Dubai Marina...",
-        label_visibility="collapsed"
-    )
-
-with col2:
-    send_button = st.button("Send 📤", use_container_width=True)
-
-# Handle Sakhi feedback
-if st.session_state.show_sakhi and user_input and send_button:
-    st.session_state.feedback_data[st.session_state.sakhi_stage] = user_input
-    
-    if st.session_state.sakhi_stage == "intro":
-        st.session_state.sakhi_stage = "rating"
-    elif st.session_state.sakhi_stage == "rating":
-        st.session_state.sakhi_stage = "improvement"
-    elif st.session_state.sakhi_stage == "improvement":
-        st.session_state.sakhi_stage = "contact"
-    elif st.session_state.sakhi_stage == "contact":
-        st.session_state.sakhi_stage = "thanks"
-        logger.info(f"Feedback collected: {st.session_state.feedback_data}")
-        st.balloons()
-    
-    st.rerun()
-
-# Handle normal conversation
-elif user_input and send_button and not st.session_state.show_sakhi:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    with st.spinner("🤔 Thinking..."):
-        response = st.session_state.agent.generate_response(user_input)
-        st.session_state.messages.append({"role": "assistant", "content": response})
-    
-    # Trigger Sakhi after 5+ messages
-    if len(st.session_state.messages) >= 10:
-        st.session_state.show_sakhi = True
-    
-    st.rerun()
-
-# Sidebar with stats
-with st.sidebar:
-    st.markdown("### 📊 Quick Stats")
-    
-    if st.session_state.agent and st.session_state.agent.conversation.user_data:
-        data = st.session_state.agent.conversation.user_data
-        
-        if 'monthly_income' in data:
-            st.markdown(f"""
-            <div class="stat-card">
-                <h3>💰 Income</h3>
-                <p>AED {data['monthly_income']:,.0f}/month</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        if 'property_price' in data:
-            st.markdown(f"""
-            <div class="stat-card">
-                <h3>🏡 Property Price</h3>
-                <p>AED {data['property_price']:,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### 🎯 UAE Mortgage Facts")
-    st.info("✅ Max LTV: 80% for expats\n\n✅ Upfront costs: ~7%\n\n✅ Standard rate: 4.5%\n\n✅ Max tenure: 25 years")
-    
-    if st.button("🔄 Start New Chat"):
-        st.session_state.messages = []
-        st.session_state.agent = None
-        st.session_state.show_sakhi = False
-        st.rerun()
-
-logger.info("App render completed")

@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ============ OPENAI SETUP (NEW SDK) ============
+# ============ OPENAI SETUP ============
 from openai import OpenAI
 
 try:
@@ -39,23 +39,26 @@ def calculate_emi(loan_amount, annual_rate, tenure_years):
     emi = loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
     return round(emi, 2)
 
+
 def calculate_upfront_costs(property_price):
     return round(property_price * HIDDEN_COST_PERCENT, 2)
+
 
 def validate_ltv(property_price, down_payment):
     if down_payment < (property_price * 0.20):
         return False, f"Down payment must be at least 20% (AED {property_price * 0.2:,.0f})"
     return True, "LTV OK"
 
+
 def get_buy_vs_rent_advice(stay_duration, emi, monthly_maintenance, monthly_rent):
     total_monthly_buy = emi + monthly_maintenance
     if stay_duration < MIN_STAY_FOR_BUY:
-        return "RENT", f"Rent for now. {stay_duration} years is too short. Upfront 7% fees will kill returns."
+        return "RENT", f"Rent for now. {stay_duration} years is too short due to 7% transaction costs."
     else:
         return "BUY", f"Buy! Staying {stay_duration}+ years makes ownership financially better. Monthly cost: AED {total_monthly_buy:,.0f}"
 
 
-# ============ DATA EXTRACTION ============
+# ============ EXTRACTION ============
 def extract_user_data(message):
     data = {}
     msg_lower = message.lower()
@@ -63,15 +66,20 @@ def extract_user_data(message):
     numbers = re.findall(r'\d+,?\d*', msg_lower)
     amounts = [int(n.replace(',', '')) for n in numbers]
 
+    # Income
     if ('income' in msg_lower or 'earn' in msg_lower or 'salary' in msg_lower) and amounts:
         data['monthly_income'] = amounts[0]
 
-    if 'down' in msg_lower and amounts:
-        data['down_payment'] = amounts[-1]
+    # Down payment
+    if 'down' in msg_lower or 'saved' in msg_lower:
+        if len(amounts) >= 1:
+            data['down_payment'] = amounts[-1]
 
-    if ('buy' in msg_lower or 'apartment' in msg_lower or 'property' in msg_lower) and amounts:
+    # Property price
+    if ('buy' in msg_lower or 'property' in msg_lower or 'apartment' in msg_lower) and amounts:
         data['property_price'] = amounts[-1]
 
+    # Stay duration
     years = re.findall(r'(\d+)\s*year', msg_lower)
     if years:
         data['stay_duration'] = int(years[0])
@@ -79,21 +87,34 @@ def extract_user_data(message):
     return data
 
 
-# ============ CALCULATIONS ============
+# ============ SAFE CALCULATION ============
 def perform_calculation(data):
-    if not all([data.get("property_price"), data.get("down_payment"), data.get("stay_duration")]):
+    if not data.get("property_price") or not data.get("down_payment") or not data.get("stay_duration"):
         return None
 
+    # LTV
     is_valid, msg = validate_ltv(data["property_price"], data["down_payment"])
     if not is_valid:
         return {"error": msg}
 
+    # Loan
     loan_amount = data["property_price"] - data["down_payment"]
-    tenure = MAX_TENURE
-    emi = calculate_emi(loan_amount, INTEREST_RATE, tenure)
-    upfront = calculate_upfront_costs(data["property_price"])
-    monthly_maintenance = (data["property_price"] * 0.004) / 12
+    if loan_amount <= 0:
+        return {"error": "Down payment cannot be equal or greater than property price."}
 
+    tenure = MAX_TENURE
+
+    # EMI
+    emi = calculate_emi(loan_amount, INTEREST_RATE, tenure)
+    if emi is None or emi <= 0:
+        return {"error": "Unable to calculate EMI. Please check inputs."}
+
+    # Maintenance
+    monthly_maintenance = (data["property_price"] * 0.004) / 12
+    if monthly_maintenance <= 0:
+        return {"error": "Unable to calculate maintenance cost."}
+
+    # Advice
     advice_type, advice_text = get_buy_vs_rent_advice(
         data["stay_duration"],
         emi,
@@ -106,7 +127,7 @@ def perform_calculation(data):
         "down_payment": data["down_payment"],
         "loan_amount": loan_amount,
         "emi": emi,
-        "upfront_costs": upfront,
+        "upfront_costs": calculate_upfront_costs(data["property_price"]),
         "stay_duration": data["stay_duration"],
         "advice_type": advice_type,
         "advice_text": advice_text,
@@ -114,11 +135,10 @@ def perform_calculation(data):
     }
 
 
-# ============ AI RESPONSE (NEW SDK) ============
+# ============ AI RESPONSE ============
 def get_ai_response(user_message, conversation_history):
-
     messages = [
-        {"role": "system", "content": "You are Rivo, a warm UAE property advisor. Talk like a helpful friend. Ask one question at a time."}
+        {"role": "system", "content": "You are Rivo, a warm UAE real estate friend. Ask one question at a time."}
     ] + conversation_history + [
         {"role": "user", "content": user_message}
     ]
@@ -132,7 +152,7 @@ def get_ai_response(user_message, conversation_history):
     return response.output_text
 
 
-# ============ SESSION STATE ============
+# ============ SESSION ============
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -143,7 +163,7 @@ if "calculation_result" not in st.session_state:
     st.session_state.calculation_result = None
 
 
-# ============ UI HEADER ============
+# ============ UI ============
 st.markdown("""
 <div style='background:#5A60EA;padding:30px;border-radius:15px;color:white;text-align:center;margin-bottom:25px;'>
     <h1>🏠 AskRivo</h1>
@@ -154,13 +174,12 @@ st.markdown("""
 st.markdown("### Tell me your situation...")
 
 
-# ============ CHAT DISPLAY ============
+# ============ CHAT ============
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
+    with st.chat_message(msg["role"]]:
         st.write(msg["content"])
 
 
-# ============ USER INPUT ============
 if user_input := st.chat_input("Type here..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
@@ -183,11 +202,11 @@ if user_input := st.chat_input("Type here..."):
         st.session_state.calculation_result = result
 
 
-# ============ RESULTS PANEL ============
+# ============ RESULTS ============
 if st.session_state.calculation_result:
     result = st.session_state.calculation_result
-    st.divider()
 
+    st.divider()
     st.markdown("### 📊 Your Financial Breakdown")
 
     col1, col2, col3, col4 = st.columns(4)

@@ -96,7 +96,10 @@ def validate_ltv(property_price, down_payment):
 
 def get_buy_vs_rent_advice(stay_duration, emi, monthly_maintenance, monthly_rent):
     """Smart advice based on stay duration"""
-    total_monthly_buy = emi + monthly_maintenance
+    if emi is None or monthly_maintenance is None:
+        return "CONSIDER", "Please provide more details for accurate recommendation."
+    
+    total_monthly_buy = float(emi) + float(monthly_maintenance)
     
     if stay_duration < MIN_STAY_FOR_BUY:
         return "RENT", f"🏘️ Rent for now. You'll only stay {stay_duration} years. 7% transaction fee kills profit."

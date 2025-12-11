@@ -249,13 +249,14 @@ class SakhiBot:
     @staticmethod
     def get_message(stage: str) -> str:
         messages = {
-            "intro": "Hi! I'm Sakhi, your feedback friend. How was your experience chatting with our mortgage advisor?",
-            "rating": "Could you rate your experience from 1-5?",
-            "improvement": "What could we improve?",
-            "contact": "Would you like our team to reach out? Share email/phone.",
-            "thanks": "Thank you — your feedback helps us improve!"
+            "intro": "Hi! 👋 I'm Sakhi, your feedback friend. How was your experience chatting with our mortgage advisor today?",
+            "rating": "On a scale of 1 to 5 ⭐, how would you rate your experience?",
+            "improvement": "We always want to get better! What can we improve in your experience?",
+            "contact": "Would you like our team to reach out to you? If yes, please share your email or phone number.",
+            "thanks": "Thank you so much! 🙏 Your feedback helps us improve our service. Have a great day!"
         }
         return messages.get(stage, messages["intro"])
+
 
 # -------------------------
 # Streamlit session init

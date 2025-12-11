@@ -1,10 +1,3 @@
-# AskRivo Mortgage AI Assistant
-
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://askrivo-mortgage-assistant.streamlit.app/)  
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-blue?logo=github)](https://github.com/Sakshi983-cmd/Askrivo-mortgage-assistant)  
-*Live Demo: [Try the Bot Here](https://askrivo-mortgage-assistant.streamlit.app/)* – Interact with the conversational AI to get personalized buy vs. rent advice for UAE expats.
-
-## Overview
 # 🏠 UAE Mortgage Assistant - AI Engineering Challenge
 
 ## 🎯 Mission Accomplished
@@ -400,3 +393,5 @@ streamlit run app.py
 ✅ Production-Ready (Retry logic, logging, error handling)
 
 **This is not a wrapper. This is AI Engineering.** 🚀
+
+�

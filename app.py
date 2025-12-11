@@ -9,16 +9,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ============ OPENAI SETUP ============
+# ============ OPENAI SETUP - FROM STREAMLIT SECRETS ============
 from openai import OpenAI
 
-# Get API key from Streamlit Secrets (secure)
-if "OPENAI_API_KEY" not in st.secrets:
-    st.error("❌ Add OPENAI_API_KEY to Streamlit Cloud Secrets")
+try:
+    # Get API key from Streamlit Secrets (UI mein jo add kiya)
+    api_key = st.secrets["OPENAI_API_KEY"]
+    client = OpenAI(api_key=api_key)
+except KeyError:
+    st.error("❌ OPENAI_API_KEY not found in Streamlit Secrets")
     st.stop()
-
-api_key = st.secrets["OPENAI_API_KEY"]
-client = OpenAI(api_key=api_key)
+except Exception as e:
+    st.error(f"❌ Error: {str(e)}")
+    st.stop()
 
 # ============ BUSINESS RULES ============
 MAX_LTV = 0.80
@@ -49,11 +52,11 @@ def validate_ltv(property_price, down_payment):
 def get_buy_vs_rent_advice(stay_duration, emi, monthly_maintenance, monthly_rent):
     total_monthly_buy = emi + monthly_maintenance
     if stay_duration < MIN_STAY_FOR_BUY:
-        return "RENT", f"Rent for now. {stay_duration} years is too short. 7% transaction fee kills profit."
+        return "RENT", f"🏘️ Rent for now. {stay_duration} years is too short. 7% transaction fee kills profit."
     elif stay_duration >= MIN_STAY_FOR_BUY:
-        return "BUY", f"Buy! Staying {stay_duration}+ years. Equity buildup wins. Monthly: AED {total_monthly_buy:,.0f}"
+        return "BUY", f"✅ Buy! Staying {stay_duration}+ years. Equity buildup wins. Monthly: AED {total_monthly_buy:,.0f}"
     else:
-        return "CONSIDER", f"Gray zone (3-5 years). Depends on market & job stability."
+        return "CONSIDER", f"⚖️ Gray zone (3-5 years). Depends on market & job stability."
 
 # ============ EXTRACT DATA ============
 def extract_user_data(message):
@@ -167,6 +170,7 @@ st.markdown("""
     color: white;
     text-align: center;
     margin-bottom: 30px;
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.25);
 }
 .header-box h1 { font-size: 2.8em; font-weight: 800; margin: 0; }
 .header-box p { font-size: 1.15em; opacity: 0.9; margin: 8px 0 0 0; }

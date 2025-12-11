@@ -72,7 +72,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ✅ ✅ ✅ UPDATED: Groq Client
+# ✅ ✅ ✅ UPDATED: Groq Clien
 class GeminiClient:
     def __init__(self, api_key: str, max_retries: int = 3):
         self.api_key = api_key
@@ -94,14 +94,16 @@ class GeminiClient:
 
         except Exception as e:
             logger.error(f"Error in attempt {attempt}: {str(e)}")
+
             if attempt < self.max_retries:
                 wait_time = 2 ** attempt
                 time.sleep(wait_time)
                 return self.generate_with_retry(prompt, attempt + 1)
-            else:
-                logger.error(f"Max retries reached. Error: {traceback.format_exc()}")
-                return None
 
+            # ✅ IMPORTANT: final fallback return
+            return None
+
+        
 # Mortgage calculation tools
 class MortgageCalculator:
     MAX_LTV = 0.80

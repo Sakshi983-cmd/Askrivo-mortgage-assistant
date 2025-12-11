@@ -105,95 +105,70 @@ class GroqClient:
 
         
 # Mortgage calculation tools
-class MortgageCalculator:
-    MAX_LTV = 0.80
-    UPFRONT_COSTS = 0.07
-    STANDARD_RATE = 0.045
-    MAX_TENURE = 25
-    
-    @staticmethod
-    def calculate_emi(loan_amount: float, annual_rate: float, tenure_years: int) -> Dict:
+class MortgageAgent:
+    def __init__(self, groq_client: GroqClient, calculator: MortgageCalculator):
+        self.groq = groq_client
+        self.calculator = calculator
+        self.conversation = ConversationManager()
+
+    def should_calculate(self, user_message: str, conversation_context: str) -> bool:
+        triggers = ['calculate', 'emi', 'afford', 'monthly', 'payment', 'buy', 'rent', 'price']
+        return any(trigger in user_message.lower() for trigger in triggers)
+
+    def generate_response(self, user_message: str) -> str:
         try:
-            monthly_rate = annual_rate / 12
-            num_payments = tenure_years * 12
-            
-            if monthly_rate == 0:
-                emi = loan_amount / num_payments
+            self.conversation.add_message("user", user_message)
+            self.conversation.extract_user_data(user_message, self.calculator)
+
+            context = self.conversation.get_context()
+            user_data = self.conversation.user_data
+
+            calculation_result = None
+
+            if self.should_calculate(user_message, context):
+                if 'property_price' in user_data:
+                    if 'monthly_rent' in user_data and 'years_planning' in user_data:
+                        calculation_result = self.calculator.buy_vs_rent_analysis(
+                            user_data['monthly_rent'],
+                            user_data['property_price'],
+                            user_data['years_planning']
+                        )
+                    else:
+                        affordability = self.calculator.calculate_affordability(
+                            user_data['property_price']
+                        )
+                        calculation_result = self.calculator.calculate_emi(
+                            affordability['actual_loan'],
+                            self.calculator.STANDARD_RATE,
+                            self.calculator.MAX_TENURE
+                        )
+
+            system_prompt = f"""
+You are a friendly UAE mortgage advisor named "Zara". You help expats understand mortgages.
+
+CONTEXT:
+{context}
+
+USER DATA:
+{json.dumps(user_data, indent=2)}
+
+{json.dumps(calculation_result, indent=2) if calculation_result else ''}
+
+Respond naturally:
+"""
+
+            response = self.groq.generate_with_retry(system_prompt)
+
+            if response:
+                self.conversation.add_message("assistant", response)
+                return response
             else:
-                emi = loan_amount * monthly_rate * (1 + monthly_rate)**num_payments / \
-                      ((1 + monthly_rate)**num_payments - 1)
-            
-            total_payment = emi * num_payments
-            total_interest = total_payment - loan_amount
-            
-            return {
-                "emi": round(emi, 2),
-                "total_payment": round(total_payment, 2),
-                "total_interest": round(total_interest, 2),
-                "loan_amount": loan_amount,
-                "monthly_rate": monthly_rate,
-                "num_payments": num_payments
-            }
-        except Exception as e:
-            return {"error": str(e)}
+                return "I'm having trouble connecting right now. Please try again."
 
-    @staticmethod
-    def calculate_affordability(property_price: float, down_payment: float = None) -> Dict:
-        try:
-            if down_payment is None:
-                down_payment = property_price * 0.20
-            
-            max_loan = property_price * MortgageCalculator.MAX_LTV
-            actual_loan = property_price - down_payment
-            upfront_costs = property_price * MortgageCalculator.UPFRONT_COSTS
-            total_upfront = down_payment + upfront_costs
-            
-            return {
-                "property_price": property_price,
-                "down_payment": down_payment,
-                "max_loan": max_loan,
-                "actual_loan": min(actual_loan, max_loan),
-                "upfront_costs": upfront_costs,
-                "total_upfront": total_upfront,
-                "down_payment_percentage": (down_payment / property_price) * 100
-            }
         except Exception as e:
-            return {"error": str(e)}
+            logger.error(f"Error in generate_response: {str(e)}")
+            return "Something went wrong. Let me try again."
 
-    @staticmethod
-    def buy_vs_rent_analysis(monthly_rent: float, property_price: float, years_planning: int) -> Dict:
-        try:
-            affordability = MortgageCalculator.calculate_affordability(property_price)
-            loan_amount = affordability["actual_loan"]
-            
-            emi_data = MortgageCalculator.calculate_emi(
-                loan_amount, 
-                MortgageCalculator.STANDARD_RATE, 
-                MortgageCalculator.MAX_TENURE
-            )
-            
-            monthly_mortgage = emi_data["emi"]
-            monthly_maintenance = property_price * 0.002
-            total_monthly_own = monthly_mortgage + monthly_maintenance
-            
-            total_rent_cost = monthly_rent * 12 * years_planning
-            total_own_cost = (total_monthly_own * 12 * years_planning) + affordability["total_upfront"]
-            
-            recommendation = "RENT" if years_planning < 3 else "BUY" if years_planning > 5 else "BORDERLINE"
-            
-            return {
-                "monthly_rent": monthly_rent,
-                "monthly_mortgage": monthly_mortgage,
-                "monthly_maintenance": monthly_maintenance,
-                "total_monthly_own": total_monthly_own,
-                "total_rent_cost": total_rent_cost,
-                "total_own_cost": total_own_cost,
-                "savings": total_rent_cost - total_own_cost,
-                "recommendation": recommendation,
-                "years": years_planning
-            }
-        except Exception as e:
-            return {"error": str(e)}
 
 # Conversation Manager
 class ConversationManager:
@@ -323,7 +298,7 @@ Respond naturally:
 
 
 
-# Sakhi - Feedback Bot
+
 class SakhiBot:
     @staticmethod
     def get_message(stage: str) -> str:
@@ -335,6 +310,7 @@ class SakhiBot:
             "thanks": "Thank you so much! 🙏 Your feedback helps us improve. Have a great day!"
         }
         return messages.get(stage, messages["intro"])
+
 
 # Initialize session state
 if 'initialized' not in st.session_state:

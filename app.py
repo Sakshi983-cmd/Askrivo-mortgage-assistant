@@ -78,7 +78,7 @@ class GroqClient:
         self.api_key = api_key
         self.max_retries = max_retries   # ✅ MISSING LINE FIXED
         self.client = Groq(api_key=api_key)
-        self.model_name = "llama3-70b"
+        self.model_name = "llama3-70b-8192"
         logger.info("Groq client initialized successfully")
     
     def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:

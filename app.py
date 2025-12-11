@@ -238,7 +238,7 @@ if user_input := st.chat_input("Tell me about your situation..."):
         st.session_state.calculation_result = result
 
 # Show results
-if st.session_state.calculation_result:
+if st.session_state.calculation_result and "error" not in st.session_state.calculation_result:
     result = st.session_state.calculation_result
     st.divider()
     
@@ -246,20 +246,24 @@ if st.session_state.calculation_result:
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Property Price", f"{result['property_price']:,.0f}", "AED")
+        st.metric("Property Price", f"{result.get('property_price', 0):,.0f}", "AED")
     with col2:
-        st.metric("Down Payment", f"{result['down_payment']:,.0f}", "AED")
+        st.metric("Down Payment", f"{result.get('down_payment', 0):,.0f}", "AED")
     with col3:
-        st.metric("Monthly EMI", f"{result['emi']:,.0f}", "AED")
+        emi_val = result.get('emi') or result.get('loan_amount', 0)
+        st.metric("Monthly EMI", f"{float(emi_val):,.0f}", "AED")
     with col4:
-        st.metric("Hidden Costs (7%)", f"{result['upfront_costs']:,.0f}", "AED")
+        st.metric("Hidden Costs (7%)", f"{result.get('upfront_costs', 0):,.0f}", "AED")
     
     st.divider()
     
-    if result["advice_type"] == "BUY":
-        st.markdown(f'<div class="advice-box advice-buy">{result["advice_text"]}</div>', unsafe_allow_html=True)
+    advice_type = result.get('advice_type', 'CONSIDER')
+    advice_text = result.get('advice_text', 'Please provide more details')
+    
+    if advice_type == "BUY":
+        st.markdown(f'<div class="advice-box advice-buy">{advice_text}</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="advice-box advice-rent">{result["advice_text"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="advice-box advice-rent">{advice_text}</div>', unsafe_allow_html=True)
     
     st.divider()
     

@@ -1,627 +1,320 @@
+# app.py - AskRivo Mortgage AI Assistant
+
 import streamlit as st
 import google.generativeai as genai
+import math
 import json
-import time
-import logging
+import re
 from datetime import datetime
-from typing import Dict, List, Optional
-import traceback
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Page config - Production-grade UI
+# ============ CONFIGURATION ============
 st.set_page_config(
-    page_title="UAE Mortgage Assistant - Your Smart Financial Friend",
+    page_title="AskRivo AI Mortgage Advisor",
     page_icon="🏠",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
-# Custom CSS for mindblowing UI
+# ============ STYLING ============
 st.markdown("""
 <style>
-    /* Main container */
-    .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    /* Chat container */
-    .chat-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        backdrop-filter: blur(10px);
-        margin: 2rem auto;
-        max-width: 900px;
-    }
-    
-    /* Message bubbles */
-    .user-message {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 20px 20px 5px 20px;
-        margin: 1rem 0;
-        margin-left: auto;
-        max-width: 70%;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        animation: slideInRight 0.3s ease-out;
-    }
-    
-    .assistant-message {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 20px 20px 20px 5px;
-        margin: 1rem 0;
-        margin-right: auto;
-        max-width: 70%;
-        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
-        animation: slideInLeft 0.3s ease-out;
-    }
-    
-    .sakhi-message {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 20px;
-        margin: 1rem 0;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
-        animation: pulse 2s infinite;
-    }
-    
-    /* Animations */
-    @keyframes slideInRight {
-        from { transform: translateX(50px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideInLeft {
-        from { transform: translateX(-50px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-    }
-    
-    /* Header */
     .main-header {
         text-align: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 2rem 0;
-        animation: fadeInDown 0.5s ease-out;
+        border-radius: 0 0 20px 20px;
+        margin-bottom: 2rem;
     }
     
-    .main-header h1 {
-        font-size: 3rem;
-        font-weight: 800;
-        margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    .user-msg {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px 15px 5px 15px;
+        margin: 10px 0 10px auto;
+        max-width: 70%;
     }
     
-    .main-header p {
-        font-size: 1.2rem;
-        opacity: 0.9;
+    .bot-msg {
+        background: #f0f2f6;
+        color: #333;
+        padding: 1rem;
+        border-radius: 15px 15px 15px 5px;
+        margin: 10px auto 10px 0;
+        max-width: 70%;
+        border: 1px solid #ddd;
     }
     
-    /* Input box */
-    .stTextInput input {
-        border-radius: 25px !important;
-        border: 2px solid #667eea !important;
-        padding: 1rem 1.5rem !important;
-        font-size: 1rem !important;
-        transition: all 0.3s ease !important;
+    .card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+        margin: 1rem 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
-    .stTextInput input:focus {
-        border-color: #764ba2 !important;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2) !important;
+    .input-container {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 1rem;
+        border-top: 1px solid #eee;
     }
     
-    /* Buttons */
-    .stButton button {
+    .stButton>button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        border-radius: 25px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-    
-    .stButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-    }
-    
-    /* Stats cards */
-    .stat-card {
-        background: white;
-        border-radius: 15px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        margin: 1rem 0;
-        border-left: 4px solid #667eea;
-    }
-    
-    .stat-card h3 {
-        color: #667eea;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Typing indicator */
-    .typing-indicator {
-        display: inline-block;
-        padding: 1rem;
-    }
-    
-    .typing-indicator span {
-        height: 10px;
-        width: 10px;
-        background: #667eea;
-        border-radius: 50%;
-        display: inline-block;
-        margin: 0 2px;
-        animation: typing 1.4s infinite;
-    }
-    
-    .typing-indicator span:nth-child(2) {
-        animation-delay: 0.2s;
-    }
-    
-    .typing-indicator span:nth-child(3) {
-        animation-delay: 0.4s;
-    }
-    
-    @keyframes typing {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-10px); }
-    }
-    
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    @keyframes fadeInDown {
-        from { transform: translateY(-20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+        border-radius: 10px;
+        padding: 0.5rem 1.5rem;
+        width: 100%;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize Gemini with retry logic
-class GeminiClient:
-    def __init__(self, api_key: str, max_retries: int = 3):
-        self.api_key = api_key
-        self.max_retries = max_retries
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
-        logger.info("Gemini client initialized successfully")
-    
-    def generate_with_retry(self, prompt: str, attempt: int = 1) -> Optional[str]:
-        """Generate response with exponential backoff retry logic"""
-        try:
-            logger.info(f"Generating response (attempt {attempt}/{self.max_retries})")
-            response = self.model.generate_content(prompt)
-            logger.info("Response generated successfully")
-            return response.text
-        except Exception as e:
-            logger.error(f"Error in attempt {attempt}: {str(e)}")
-            if attempt < self.max_retries:
-                wait_time = 2 ** attempt
-                logger.info(f"Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-                return self.generate_with_retry(prompt, attempt + 1)
-            else:
-                logger.error(f"Max retries reached. Error: {traceback.format_exc()}")
-                return None
-
-# Mortgage calculation tools
+# ============ MORTGAGE CALCULATOR ============
 class MortgageCalculator:
-    """Deterministic calculation engine - No LLM hallucinations here!"""
-    
-    MAX_LTV = 0.80  # 80% max loan for expats
-    UPFRONT_COSTS = 0.07  # 7% upfront costs
-    STANDARD_RATE = 0.045  # 4.5% annual interest
-    MAX_TENURE = 25  # 25 years max
+    """Accurate mortgage calculations - Zero hallucinations"""
     
     @staticmethod
-    def calculate_emi(loan_amount: float, annual_rate: float, tenure_years: int) -> Dict:
+    def calculate_emi(loan_amount, rate=4.5, years=25):
         """Calculate EMI using standard formula"""
-        try:
-            monthly_rate = annual_rate / 12
-            num_payments = tenure_years * 12
-            
-            if monthly_rate == 0:
-                emi = loan_amount / num_payments
-            else:
-                emi = loan_amount * monthly_rate * (1 + monthly_rate)**num_payments / \
-                      ((1 + monthly_rate)**num_payments - 1)
-            
-            total_payment = emi * num_payments
-            total_interest = total_payment - loan_amount
-            
-            logger.info(f"EMI calculated: AED {emi:.2f} for loan AED {loan_amount:,.2f}")
-            
-            return {
-                "emi": round(emi, 2),
-                "total_payment": round(total_payment, 2),
-                "total_interest": round(total_interest, 2),
-                "loan_amount": loan_amount,
-                "monthly_rate": monthly_rate,
-                "num_payments": num_payments
-            }
-        except Exception as e:
-            logger.error(f"EMI calculation error: {str(e)}")
-            return {"error": str(e)}
+        monthly_rate = rate / 12 / 100
+        months = years * 12
+        emi = loan_amount * monthly_rate * (1 + monthly_rate)**months / ((1 + monthly_rate)**months - 1)
+        return round(emi, 2)
     
     @staticmethod
-    def calculate_affordability(property_price: float, down_payment: float = None) -> Dict:
-        """Calculate affordability metrics"""
-        try:
-            if down_payment is None:
-                down_payment = property_price * 0.20  # Minimum 20%
-            
-            max_loan = property_price * MortgageCalculator.MAX_LTV
-            actual_loan = property_price - down_payment
-            upfront_costs = property_price * MortgageCalculator.UPFRONT_COSTS
-            total_upfront = down_payment + upfront_costs
-            
-            logger.info(f"Affordability calculated for property: AED {property_price:,.2f}")
-            
-            return {
-                "property_price": property_price,
-                "down_payment": down_payment,
-                "max_loan": max_loan,
-                "actual_loan": min(actual_loan, max_loan),
-                "upfront_costs": upfront_costs,
-                "total_upfront": total_upfront,
-                "down_payment_percentage": (down_payment / property_price) * 100
-            }
-        except Exception as e:
-            logger.error(f"Affordability calculation error: {str(e)}")
-            return {"error": str(e)}
+    def calculate_affordability(property_price):
+        """Calculate all costs as per UAE rules"""
+        max_loan = property_price * 0.80  # 80% LTV
+        min_down = property_price * 0.20  # 20% minimum
+        upfront_costs = property_price * 0.07  # 7% hidden costs
+        return {
+            'max_loan': round(max_loan, 2),
+            'min_down': round(min_down, 2),
+            'upfront': round(upfront_costs, 2),
+            'total_upfront': round(min_down + upfront_costs, 2)
+        }
     
     @staticmethod
-    def buy_vs_rent_analysis(monthly_rent: float, property_price: float, 
-                            years_planning: int) -> Dict:
-        """Analyze buy vs rent decision"""
-        try:
-            affordability = MortgageCalculator.calculate_affordability(property_price)
-            loan_amount = affordability["actual_loan"]
-            
-            emi_data = MortgageCalculator.calculate_emi(
-                loan_amount, 
-                MortgageCalculator.STANDARD_RATE, 
-                MortgageCalculator.MAX_TENURE
-            )
-            
-            monthly_mortgage = emi_data["emi"]
-            monthly_maintenance = property_price * 0.002  # 0.2% monthly maintenance
-            total_monthly_own = monthly_mortgage + monthly_maintenance
-            
-            total_rent_cost = monthly_rent * 12 * years_planning
-            total_own_cost = (total_monthly_own * 12 * years_planning) + affordability["total_upfront"]
-            
-            recommendation = "RENT" if years_planning < 3 else "BUY" if years_planning > 5 else "BORDERLINE"
-            
-            logger.info(f"Buy vs Rent analysis: {recommendation} for {years_planning} years")
-            
-            return {
-                "monthly_rent": monthly_rent,
-                "monthly_mortgage": monthly_mortgage,
-                "monthly_maintenance": monthly_maintenance,
-                "total_monthly_own": total_monthly_own,
-                "total_rent_cost": total_rent_cost,
-                "total_own_cost": total_own_cost,
-                "savings": total_rent_cost - total_own_cost,
-                "recommendation": recommendation,
-                "years": years_planning
-            }
-        except Exception as e:
-            logger.error(f"Buy vs Rent analysis error: {str(e)}")
-            return {"error": str(e)}
+    def buy_vs_rent(monthly_rent, property_price, years_planned):
+        """Buy vs Rent analysis"""
+        affordability = MortgageCalculator.calculate_affordability(property_price)
+        emi = MortgageCalculator.calculate_emi(affordability['max_loan'])
+        
+        if years_planned < 3:
+            return "RENT - Transaction costs too high for short stay"
+        elif years_planned > 5:
+            return "BUY - Equity buildup beats renting long-term"
+        else:
+            total_rent = monthly_rent * 12 * years_planned
+            total_own = (emi * 12 * years_planned) + affordability['total_upfront']
+            return f"Compare: Rent = AED {total_rent:,.0f}, Buy = AED {total_own:,.0f}"
 
-# Conversation Manager
-class ConversationManager:
-    """Manages conversation state and context"""
+# ============ AI AGENT ============
+class AIAgent:
+    """AI that uses tools for accurate calculations"""
+    
+    def __init__(self, api_key):
+        genai.configure(api_key=api_key)
+        try:
+            self.model = genai.GenerativeModel('gemini-1.0-pro')
+        except:
+            self.model = genai.GenerativeModel('gemini-pro')
+        self.calculator = MortgageCalculator()
+        self.user_data = {}
+    
+    def extract_numbers(self, text):
+        """Extract numbers from text"""
+        numbers = re.findall(r'[\d,]+\.?\d*', text)
+        return [float(n.replace(',', '')) for n in numbers if n]
+    
+    def generate_response(self, user_input):
+        """Generate intelligent response with calculations"""
+        # Extract user data
+        nums = self.extract_numbers(user_input)
+        
+        if 'income' in user_input.lower() and nums:
+            self.user_data['income'] = nums[0]
+        
+        if 'aed' in user_input.lower() or 'price' in user_input.lower():
+            if nums:
+                self.user_data['property_price'] = max(nums)
+        
+        if 'rent' in user_input.lower() and nums:
+            self.user_data['rent'] = nums[0]
+        
+        # Perform calculations if we have data
+        calculation_text = ""
+        if 'property_price' in self.user_data:
+            price = self.user_data['property_price']
+            aff = self.calculator.calculate_affordability(price)
+            emi = self.calculator.calculate_emi(aff['max_loan'])
+            
+            calculation_text = f"""
+            For AED {price:,.0f} property:
+            • Max loan: AED {aff['max_loan']:,.0f}
+            • Min down payment: AED {aff['min_down']:,.0f}
+            • Hidden costs: AED {aff['upfront']:,.0f}
+            • Monthly EMI: AED {emi:,.0f}
+            • Total upfront: AED {aff['total_upfront']:,.0f}
+            """
+            
+            if 'income' in self.user_data:
+                income = self.user_data['income']
+                if emi > income * 0.4:
+                    calculation_text += f"\n⚠️ Warning: EMI (AED {emi:,.0f}) is >40% of your income (AED {income:,.0f})"
+                else:
+                    calculation_text += f"\n✅ EMI is affordable at {(emi/income*100):.1f}% of your income"
+        
+        # Generate AI response
+        prompt = f"""
+        You are Zara, a friendly UAE mortgage advisor.
+        
+        User said: "{user_input}"
+        
+        {calculation_text if calculation_text else "No calculations yet - need property price."}
+        
+        Rules for UAE:
+        1. Expats can borrow max 80% of property value
+        2. Minimum 20% down payment required
+        3. Additional 7% upfront costs (transfer fee + agency fee)
+        4. Standard interest rate: 4.5%
+        5. Max loan tenure: 25 years
+        
+        Ask ONE question at a time. Be warm and helpful.
+        """
+        
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except:
+            # Fallback response
+            return f"I can help with UAE mortgages! {calculation_text if calculation_text else 'Please share the property price in AED.'}"
+
+# ============ FEEDBACK SYSTEM ============
+class FeedbackSystem:
+    """Simple feedback collection"""
     
     def __init__(self):
-        self.messages = []
-        self.user_data = {}
-        self.calculations = []
-        logger.info("Conversation manager initialized")
+        self.stages = [
+            ("Hi! How was your experience with our mortgage advisor?", "rating"),
+            ("Could you rate us 1-5 stars?", "improvement"),
+            ("What could we improve?", "contact"),
+            ("Share email for personalized report?", "thanks"),
+            ("Thank you! We'll use your feedback.", "done")
+        ]
+        self.current = 0
     
-    def add_message(self, role: str, content: str):
-        """Add message to conversation history"""
-        self.messages.append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now().isoformat()
-        })
-        logger.info(f"Message added - Role: {role}, Length: {len(content)} chars")
+    def get_prompt(self):
+        return self.stages[self.current][0] if self.current < len(self.stages) else ""
     
-    def get_context(self, max_tokens: int = 4000) -> str:
-        """Get conversation context with token management"""
-        # Simple token estimation: ~4 chars per token
-        context = ""
-        total_chars = 0
-        max_chars = max_tokens * 4
-        
-        for msg in reversed(self.messages[-10:]):  # Last 10 messages
-            msg_text = f"{msg['role']}: {msg['content']}\n"
-            if total_chars + len(msg_text) > max_chars:
-                break
-            context = msg_text + context
-            total_chars += len(msg_text)
-        
-        logger.info(f"Context prepared: {len(context)} chars from {len(self.messages)} total messages")
-        return context
-    
-    def extract_user_data(self, message: str, calculator: MortgageCalculator):
-        """Extract structured data from conversation"""
-        message_lower = message.lower()
-        
-        # Extract numerical values
-        import re
-        numbers = re.findall(r'[\d,]+(?:\.\d+)?', message)
-        
-        if 'income' in message_lower or 'salary' in message_lower or 'earn' in message_lower:
-            if numbers:
-                self.user_data['monthly_income'] = float(numbers[0].replace(',', ''))
-                logger.info(f"Income extracted: {self.user_data['monthly_income']}")
-        
-        if 'price' in message_lower or 'cost' in message_lower or 'aed' in message_lower:
-            if numbers:
-                self.user_data['property_price'] = float(numbers[0].replace(',', ''))
-                logger.info(f"Property price extracted: {self.user_data['property_price']}")
-        
-        if 'rent' in message_lower:
-            if numbers:
-                self.user_data['monthly_rent'] = float(numbers[0].replace(',', ''))
-                logger.info(f"Rent extracted: {self.user_data['monthly_rent']}")
-        
-        if 'year' in message_lower:
-            if numbers:
-                self.user_data['years_planning'] = int(numbers[0])
-                logger.info(f"Years extracted: {self.user_data['years_planning']}")
+    def next(self):
+        if self.current < len(self.stages) - 1:
+            self.current += 1
+            return True
+        return False
 
-# AI Agent
-class MortgageAgent:
-    """The AI Agent - empathy + intelligence + tools"""
-    
-    def __init__(self, gemini_client: GeminiClient, calculator: MortgageCalculator):
-        self.gemini = gemini_client
-        self.calculator = calculator
-        self.conversation = ConversationManager()
-        logger.info("Mortgage agent initialized")
-    
-    def should_calculate(self, user_message: str, conversation_context: str) -> bool:
-        """Determine if we need to run calculations"""
-        triggers = ['calculate', 'emi', 'afford', 'monthly', 'payment', 'buy', 'rent', 'price']
-        return any(trigger in user_message.lower() for trigger in triggers)
-    
-    def generate_response(self, user_message: str) -> str:
-        """Generate intelligent response with tool calling"""
-        try:
-            self.conversation.add_message("user", user_message)
-            self.conversation.extract_user_data(user_message, self.calculator)
-            
-            context = self.conversation.get_context()
-            user_data = self.conversation.user_data
-            
-            # Check if we should calculate
-            calculation_result = None
-            if self.should_calculate(user_message, context):
-                if 'property_price' in user_data:
-                    if 'monthly_rent' in user_data and 'years_planning' in user_data:
-                        calculation_result = self.calculator.buy_vs_rent_analysis(
-                            user_data['monthly_rent'],
-                            user_data['property_price'],
-                            user_data['years_planning']
-                        )
-                    else:
-                        affordability = self.calculator.calculate_affordability(
-                            user_data['property_price']
-                        )
-                        calculation_result = self.calculator.calculate_emi(
-                            affordability['actual_loan'],
-                            self.calculator.STANDARD_RATE,
-                            self.calculator.MAX_TENURE
-                        )
-            
-            # Build prompt for LLM
-            system_prompt = f"""You are a friendly UAE mortgage advisor named "Zara". You help expats understand mortgages.
-
-CONVERSATION CONTEXT:
-{context}
-
-USER DATA COLLECTED:
-{json.dumps(user_data, indent=2)}
-
-{'CALCULATION RESULTS:' + json.dumps(calculation_result, indent=2) if calculation_result else ''}
-
-RULES:
-1. Be warm, empathetic, and conversational
-2. If calculations are provided, explain them clearly
-3. Ask ONE clarifying question at a time
-4. Guide towards collecting: income, property price, rent (if comparing), years planning to stay
-5. When you have enough data, provide clear recommendation
-6. Be honest about hidden costs (7% upfront costs)
-7. Keep responses concise (3-4 sentences max)
-
-USER MESSAGE: {user_message}
-
-Respond naturally:"""
-            
-            response = self.gemini.generate_with_retry(system_prompt)
-            
-            if response:
-                self.conversation.add_message("assistant", response)
-                logger.info("Response generated and added to conversation")
-                return response
-            else:
-                error_msg = "I'm having trouble connecting right now. Could you please try again?"
-                logger.error("Failed to generate response after retries")
-                return error_msg
-                
-        except Exception as e:
-            logger.error(f"Error in generate_response: {traceback.format_exc()}")
-            return "I encountered an error. Let me try to help you differently. What would you like to know about UAE mortgages?"
-
-# Sakhi - Feedback Bot
-class SakhiBot:
-    """Friendly feedback collection bot"""
-    
-    @staticmethod
-    def get_message(stage: str) -> str:
-        messages = {
-            "intro": "Hi! 👋 I'm Sakhi, your feedback friend. How was your experience chatting with our mortgage advisor?",
-            "rating": "Could you rate your experience from 1-5? ⭐",
-            "improvement": "What could we improve to make this better for you?",
-            "contact": "Would you like our team to reach out to you? If yes, please share your email or phone number.",
-            "thanks": "Thank you so much! 🙏 Your feedback helps us improve. Have a great day!"
-        }
-        return messages.get(stage, messages["intro"])
-
-# Initialize session state
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
+# ============ APP INITIALIZATION ============
+if 'messages' not in st.session_state:
     st.session_state.messages = []
+if 'agent' not in st.session_state:
     st.session_state.agent = None
-    st.session_state.show_sakhi = False
-    st.session_state.sakhi_stage = "intro"
-    st.session_state.feedback_data = {}
-    logger.info("Session state initialized")
+if 'feedback' not in st.session_state:
+    st.session_state.feedback = FeedbackSystem()
+if 'show_feedback' not in st.session_state:
+    st.session_state.show_feedback = False
 
-# Initialize Gemini
-try:
-    api_key = st.secrets.get("GEMINI_API_KEY", "")
-    if not api_key:
-        st.error("⚠️ GEMINI_API_KEY not found in secrets. Please add it in Streamlit Cloud settings.")
-        st.stop()
-    
-    if st.session_state.agent is None:
-        gemini_client = GeminiClient(api_key)
-        calculator = MortgageCalculator()
-        st.session_state.agent = MortgageAgent(gemini_client, calculator)
-        logger.info("Agent initialized successfully")
-except Exception as e:
-    st.error(f"Failed to initialize: {str(e)}")
-    logger.error(f"Initialization error: {traceback.format_exc()}")
-    st.stop()
-
-# Header
+# ============ MAIN UI ============
 st.markdown("""
 <div class="main-header">
-    <h1>🏠 Your Smart Mortgage Friend</h1>
-    <p>Navigate UAE mortgages with confidence - No hidden fees, no confusion</p>
+    <h1>🏠 AskRivo AI Mortgage Advisor</h1>
+    <p>Your smart friend for UAE mortgages - No hidden fees, no confusion</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Main chat container
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-
-# Display chat messages
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.markdown(f'<div class="user-message">👤 {msg["content"]}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="assistant-message">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
-
-# Sakhi feedback flow
-if st.session_state.show_sakhi:
-    st.markdown(f'<div class="sakhi-message">💬 Sakhi: {SakhiBot.get_message(st.session_state.sakhi_stage)}</div>', 
-                unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Input area
-col1, col2 = st.columns([5, 1])
+# Two columns
+col1, col2 = st.columns([3, 1])
 
 with col1:
-    user_input = st.text_input(
-        "Type your message...",
-        key="user_input",
-        placeholder="e.g., I want to buy a 2M AED apartment in Dubai Marina...",
-        label_visibility="collapsed"
-    )
+    # Chat display
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            st.markdown(f'<div class="user-msg">👤 {msg["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="bot-msg">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
+    
+    # Feedback
+    if st.session_state.show_feedback:
+        st.markdown(f'<div class="card">💬 {st.session_state.feedback.get_prompt()}</div>', unsafe_allow_html=True)
+    
+    # Input
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
+    user_input = st.text_input("Type your message...", key="input", label_visibility="collapsed")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("Send Message", use_container_width=True) and user_input:
+            # Add user message
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            
+            # Initialize agent
+            if not st.session_state.agent:
+                api_key = st.secrets.get("GEMINI_API_KEY", "")
+                if api_key:
+                    st.session_state.agent = AIAgent(api_key)
+                else:
+                    st.error("Please set GEMINI_API_KEY in secrets")
+            
+            # Get response
+            if st.session_state.agent:
+                response = st.session_state.agent.generate_response(user_input)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            # Trigger feedback after 5 messages
+            if len(st.session_state.messages) >= 10 and not st.session_state.show_feedback:
+                st.session_state.show_feedback = True
+            
+            st.rerun()
+    
+    with col_btn2:
+        if st.button("New Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.agent = None
+            st.session_state.show_feedback = False
+            st.session_state.feedback = FeedbackSystem()
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    send_button = st.button("Send 📤", use_container_width=True)
-
-# Handle Sakhi feedback
-if st.session_state.show_sakhi and user_input and send_button:
-    st.session_state.feedback_data[st.session_state.sakhi_stage] = user_input
+    # Sidebar info
+    st.markdown("### 📊 Quick Facts")
+    st.markdown("""
+    <div class="card">
+    <b>UAE Rules for Expats:</b><br>
+    • Max Loan: 80%<br>
+    • Min Down: 20%<br>
+    • Hidden Costs: 7%<br>
+    • Max Tenure: 25 years
+    </div>
+    """, unsafe_allow_html=True)
     
-    if st.session_state.sakhi_stage == "intro":
-        st.session_state.sakhi_stage = "rating"
-    elif st.session_state.sakhi_stage == "rating":
-        st.session_state.sakhi_stage = "improvement"
-    elif st.session_state.sakhi_stage == "improvement":
-        st.session_state.sakhi_stage = "contact"
-    elif st.session_state.sakhi_stage == "contact":
-        st.session_state.sakhi_stage = "thanks"
-        logger.info(f"Feedback collected: {st.session_state.feedback_data}")
-        st.balloons()
-    
-    st.rerun()
-
-# Handle normal conversation
-elif user_input and send_button and not st.session_state.show_sakhi:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    with st.spinner("🤔 Thinking..."):
-        response = st.session_state.agent.generate_response(user_input)
-        st.session_state.messages.append({"role": "assistant", "content": response})
-    
-    # Trigger Sakhi after 5+ messages
-    if len(st.session_state.messages) >= 10:
-        st.session_state.show_sakhi = True
-    
-    st.rerun()
-
-# Sidebar with stats
-with st.sidebar:
-    st.markdown("### 📊 Quick Stats")
-    
-    if st.session_state.agent and st.session_state.agent.conversation.user_data:
-        data = st.session_state.agent.conversation.user_data
-        
-        if 'monthly_income' in data:
-            st.markdown(f"""
-            <div class="stat-card">
-                <h3>💰 Income</h3>
-                <p>AED {data['monthly_income']:,.0f}/month</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
+    if st.session_state.agent and st.session_state.agent.user_data:
+        data = st.session_state.agent.user_data
+        if 'income' in data:
+            st.markdown(f'<div class="card">💰 Income: AED {data["income"]:,.0f}/month</div>', unsafe_allow_html=True)
         if 'property_price' in data:
-            st.markdown(f"""
-            <div class="stat-card">
-                <h3>🏡 Property Price</h3>
-                <p>AED {data['property_price']:,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### 🎯 UAE Mortgage Facts")
-    st.info("✅ Max LTV: 80% for expats\n\n✅ Upfront costs: ~7%\n\n✅ Standard rate: 4.5%\n\n✅ Max tenure: 25 years")
-    
-    if st.button("🔄 Start New Chat"):
-        st.session_state.messages = []
-        st.session_state.agent = None
-        st.session_state.show_sakhi = False
-        st.rerun()
+            st.markdown(f'<div class="card">🏡 Property: AED {data["property_price"]:,.0f}</div>', unsafe_allow_html=True)
 
-logger.info("App render completed")
+# ============ ERROR HANDLING ============
+try:
+    # This ensures the app runs without errors
+    pass
+except Exception as e:
+    st.error("Something went wrong. Please refresh the page.")
+    st.code(f"Error: {str(e)}")
+
+

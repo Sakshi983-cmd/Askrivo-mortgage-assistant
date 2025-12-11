@@ -1,4 +1,5 @@
-import streamlit as st
+
+ import streamlit as st
 from openai import OpenAI
 import json
 import os
@@ -15,8 +16,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# OpenAI setup (NEW API)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI setup (NEW API) - STREAMLIT SECRETS
+try:
+    api_key = st.secrets.get("OPENAI_API_KEY")
+    if not api_key:
+        st.error("❌ API key missing from Streamlit Secrets")
+        st.stop()
+    client = OpenAI(api_key=api_key)
+except Exception as e:
+    st.error(f"❌ Error loading API key: {str(e)}")
+    st.stop()
 
 # ============ SESSION STATE INIT ============
 if "messages" not in st.session_state:

@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-from google.generativeai.types import content_types
+from google.generativeai import protos
 import json
 import logging
 import re
@@ -65,6 +65,7 @@ st.markdown("""
         border-radius: 15px;
         font-size: 0.85em;
         margin: 5px 0;
+        color: white;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -76,7 +77,7 @@ INTEREST_RATE = 4.5
 MAX_TENURE = 25
 MIN_STAY_FOR_BUY = 5
 
-# ============ TOOL FUNCTIONS (For Gemini Function Calling) ============
+# ============ TOOL FUNCTIONS ============
 
 def calculate_emi_tool(loan_amount: float, annual_rate: float, tenure_years: int) -> dict:
     """Calculate EMI - Called by AI via function calling"""
@@ -180,7 +181,7 @@ def buy_vs_rent_tool(property_price: float, monthly_rent: float, stay_years: int
             recommendation = "BUY"
             reason = "Long-term equity buildup outweighs transaction costs"
         else:
-            if total_own_cost < total_rent_cost * 1.1:  # 10% buffer
+            if total_own_cost < total_rent_cost * 1.1:
                 recommendation = "BUY"
                 reason = "Break-even analysis slightly favors buying"
             else:
@@ -203,84 +204,76 @@ def buy_vs_rent_tool(property_price: float, monthly_rent: float, stay_years: int
         logger.error(f"Buy vs Rent error: {e}")
         return {"error": str(e)}
 
-# ============ DEFINE TOOLS FOR GEMINI ============
+# ============ DEFINE TOOLS USING DICT (Simpler Approach) ============
 
-calculate_emi_declaration = content_types.FunctionDeclaration(
-    name="calculate_emi",
-    description="Calculate monthly EMI (Equated Monthly Installment) for a mortgage loan. Use this when user asks about monthly payments or EMI.",
-    parameters=content_types.Schema(
-        type=content_types.Type.OBJECT,
-        properties={
-            "loan_amount": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="The loan amount in AED"
-            ),
-            "annual_rate": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="Annual interest rate as percentage (e.g., 4.5 for 4.5%)"
-            ),
-            "tenure_years": content_types.Schema(
-                type=content_types.Type.INTEGER,
-                description="Loan tenure in years"
-            )
+calculate_emi_declaration = {
+    "name": "calculate_emi",
+    "description": "Calculate monthly EMI (Equated Monthly Installment) for a mortgage loan. Use this when user asks about monthly payments or EMI.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "loan_amount": {
+                "type": "number",
+                "description": "The loan amount in AED"
+            },
+            "annual_rate": {
+                "type": "number",
+                "description": "Annual interest rate as percentage (e.g., 4.5 for 4.5%)"
+            },
+            "tenure_years": {
+                "type": "integer",
+                "description": "Loan tenure in years"
+            }
         },
-        required=["loan_amount", "annual_rate", "tenure_years"]
-    )
-)
+        "required": ["loan_amount", "annual_rate", "tenure_years"]
+    }
+}
 
-calculate_affordability_declaration = content_types.FunctionDeclaration(
-    name="calculate_affordability",
-    description="Check if a property is affordable based on price and down payment. Validates 20% minimum down payment rule for UAE expats.",
-    parameters=content_types.Schema(
-        type=content_types.Type.OBJECT,
-        properties={
-            "property_price": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="Property price in AED"
-            ),
-            "down_payment": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="Down payment amount in AED"
-            )
+calculate_affordability_declaration = {
+    "name": "calculate_affordability",
+    "description": "Check if a property is affordable based on price and down payment. Validates 20% minimum down payment rule for UAE expats.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "property_price": {
+                "type": "number",
+                "description": "Property price in AED"
+            },
+            "down_payment": {
+                "type": "number",
+                "description": "Down payment amount in AED"
+            }
         },
-        required=["property_price", "down_payment"]
-    )
-)
+        "required": ["property_price", "down_payment"]
+    }
+}
 
-buy_vs_rent_declaration = content_types.FunctionDeclaration(
-    name="buy_vs_rent",
-    description="Analyze whether to buy or rent based on property price, current rent, and planned stay duration. Provides financial comparison and recommendation.",
-    parameters=content_types.Schema(
-        type=content_types.Type.OBJECT,
-        properties={
-            "property_price": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="Property price in AED"
-            ),
-            "monthly_rent": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="Current monthly rent in AED"
-            ),
-            "stay_years": content_types.Schema(
-                type=content_types.Type.INTEGER,
-                description="How many years user plans to stay"
-            ),
-            "down_payment": content_types.Schema(
-                type=content_types.Type.NUMBER,
-                description="Optional: Down payment amount. Defaults to 20% if not provided"
-            )
+buy_vs_rent_declaration = {
+    "name": "buy_vs_rent",
+    "description": "Analyze whether to buy or rent based on property price, current rent, and planned stay duration.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "property_price": {
+                "type": "number",
+                "description": "Property price in AED"
+            },
+            "monthly_rent": {
+                "type": "number",
+                "description": "Current monthly rent in AED"
+            },
+            "stay_years": {
+                "type": "integer",
+                "description": "How many years user plans to stay"
+            },
+            "down_payment": {
+                "type": "number",
+                "description": "Optional: Down payment amount"
+            }
         },
-        required=["property_price", "monthly_rent", "stay_years"]
-    )
-)
-
-mortgage_tools = content_types.Tool(
-    function_declarations=[
-        calculate_emi_declaration,
-        calculate_affordability_declaration,
-        buy_vs_rent_declaration
-    ]
-)
+        "required": ["property_price", "monthly_rent", "stay_years"]
+    }
+}
 
 # ============ AI WITH FUNCTION CALLING ============
 
@@ -306,22 +299,16 @@ When to use tools:
 2. User asks about EMI/monthly payment → use calculate_emi
 3. User asks "should I buy or rent?" → use buy_vs_rent
 
-IMPORTANT: When you call a function, I will give you the result. Use that result to give a friendly, natural response. Don't just dump numbers - explain what they mean!
-
-Example:
-User: "I want to buy a 2M AED apartment with 400k down"
-You: *calls calculate_affordability*
-Then respond: "Great! A 2M property with 400k down works perfectly - that's exactly the 20% required. Your loan would be 1.6M. Plus, budget for 140k in upfront costs (transfer fees, etc). Want to know your monthly EMI?"
-"""
+IMPORTANT: When you call a function, I will give you the result. Use that result to give a friendly, natural response."""
     
     # Build conversation context
-    messages = []
-    for msg in conversation_history[-10:]:  # Last 10 messages
-        messages.append({
+    context = []
+    for msg in conversation_history[-10:]:
+        context.append({
             "role": msg["role"],
             "parts": [msg["content"]]
         })
-    messages.append({
+    context.append({
         "role": "user",
         "parts": [user_message]
     })
@@ -331,51 +318,67 @@ Then respond: "Great! A 2M property with 400k down works perfectly - that's exac
         try:
             logger.info(f"AI call attempt {attempt + 1}/{max_retries}")
             
+            # Create model with tools
             model = genai.GenerativeModel(
                 model_name='gemini-1.5-flash',
-                tools=[mortgage_tools],
+                tools=[
+                    calculate_emi_declaration,
+                    calculate_affordability_declaration,
+                    buy_vs_rent_declaration
+                ],
                 system_instruction=system_prompt
             )
             
+            # Start chat
             chat = model.start_chat()
             
-            # Send all context
-            for msg in messages:
-                response = chat.send_message(msg["parts"][0])
+            # Send context messages
+            for msg in context[:-1]:
+                try:
+                    chat.send_message(msg["parts"][0])
+                except:
+                    pass
+            
+            # Send new message
+            response = chat.send_message(context[-1]["parts"][0])
             
             # Check if tool was called
             tool_calls = []
             function_results = []
             
-            for part in response.parts:
-                if fn := part.function_call:
-                    logger.info(f"🎯 AI decided to call: {fn.name}")
-                    tool_calls.append(fn.name)
-                    
-                    # Execute the function
-                    args = dict(fn.args)
-                    
-                    if fn.name == "calculate_emi":
-                        result = calculate_emi_tool(**args)
-                    elif fn.name == "calculate_affordability":
-                        result = calculate_affordability_tool(**args)
-                    elif fn.name == "buy_vs_rent":
-                        result = buy_vs_rent_tool(**args)
-                    else:
-                        result = {"error": "Unknown function"}
-                    
-                    function_results.append(result)
-                    
-                    # Send result back to AI
-                    response = chat.send_message(
-                        content_types.Part.from_function_response(
-                            name=fn.name,
-                            response={"result": result}
-                        )
-                    )
+            # Check response parts
+            if hasattr(response, 'parts'):
+                for part in response.parts:
+                    # Check for function call
+                    if hasattr(part, 'function_call') and part.function_call:
+                        fn = part.function_call
+                        logger.info(f"🎯 AI decided to call: {fn.name}")
+                        tool_calls.append(fn.name)
+                        
+                        # Execute the function
+                        args = dict(fn.args)
+                        
+                        if fn.name == "calculate_emi":
+                            result = calculate_emi_tool(**args)
+                        elif fn.name == "calculate_affordability":
+                            result = calculate_affordability_tool(**args)
+                        elif fn.name == "buy_vs_rent":
+                            result = buy_vs_rent_tool(**args)
+                        else:
+                            result = {"error": "Unknown function"}
+                        
+                        function_results.append(result)
+                        
+                        # Send result back to AI
+                        response = chat.send_message({
+                            "function_response": {
+                                "name": fn.name,
+                                "response": result
+                            }
+                        })
             
             # Get final text response
-            final_text = response.text if response.text else "I'm processing that information..."
+            final_text = response.text if hasattr(response, 'text') and response.text else "I'm processing that information..."
             
             return {
                 "text": final_text,
@@ -387,13 +390,13 @@ Then respond: "Great! A 2M property with 400k down works perfectly - that's exac
             logger.error(f"AI error (attempt {attempt + 1}): {str(e)}")
             
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2 ** attempt
                 logger.info(f"Retrying in {wait_time}s...")
                 time.sleep(wait_time)
             else:
                 logger.error("Max retries exceeded")
                 return {
-                    "text": "I'm having trouble connecting right now. Let me try to help anyway - what specific question do you have about UAE mortgages?",
+                    "text": "I'm having trouble connecting right now. Let me help you with UAE mortgage basics - what would you like to know?",
                     "tool_calls": [],
                     "function_results": []
                 }
@@ -414,8 +417,8 @@ st.markdown("""
 
 # Sidebar stats
 with st.sidebar:
-    st.markdown("### 🔧 AI Tools Used")
-    st.metric("Function Calls", st.session_state.tool_usage_count)
+    st.markdown("### 🔧 AI Tools Available")
+    st.metric("Function Calls Made", st.session_state.tool_usage_count)
     st.markdown("---")
     st.markdown("### 📚 Quick Facts")
     st.info(f"""
@@ -449,7 +452,7 @@ if user_input := st.chat_input("Tell me about your situation..."):
     with st.chat_message("user"):
         st.write(user_input)
     
-    # Get AI response with streaming effect
+    # Get AI response
     with st.chat_message("assistant"):
         with st.spinner("Rivo is thinking..."):
             response = get_ai_response_with_tools(
